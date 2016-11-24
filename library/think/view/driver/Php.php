@@ -119,11 +119,9 @@ class Php
         // 分析模板文件规则
         $request    = Request::instance();
         $controller = Loader::parseName($request->controller());
-        $depr       = $this->config['view_depr'];
-        if (0 !== strpos($template, '/')) {
+        if ($controller && 0 !== strpos($template, '/')) {
+            $depr     = $this->config['view_depr'];
             $template = str_replace(['/', ':'], $depr, $template);
-        }
-        if ($controller) {
             if ('' == $template) {
                 // 如果模板文件名为空 按照默认规则定位
                 $template = str_replace('.', DS, $controller) . $depr . $request->action();

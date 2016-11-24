@@ -306,7 +306,7 @@ abstract class Builder
         if (is_scalar($value) && array_key_exists($field, $binds) && !in_array($exp, ['EXP', 'NOT NULL', 'NULL', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN']) && strpos($exp, 'TIME') === false) {
             if (strpos($value, ':') !== 0 || !$this->query->isBind(substr($value, 1))) {
                 if ($this->query->isBind($bindName)) {
-                    $bindName .= '_' . str_replace('.', '_', uniqid('', true));
+                    $bindName .= '_' . uniqid();
                 }
                 $this->query->bind($bindName, $value, $bindType);
                 $value = ':' . $bindName;
@@ -333,13 +333,8 @@ abstract class Builder
                     $bind  = [];
                     $array = [];
                     foreach ($value as $k => $v) {
-                        if ($this->query->isBind($bindName . '_in_' . $k)) {
-                            $bindKey = $bindName . '_in_' . uniqid() . '_' . $k;
-                        } else {
-                            $bindKey = $bindName . '_in_' . $k;
-                        }
-                        $bind[$bindKey] = [$v, $bindType];
-                        $array[]        = ':' . $bindKey;
+                        $bind[$bindName . '_in_' . $k] = [$v, $bindType];
+                        $array[]                       = ':' . $bindName . '_in_' . $k;
                     }
                     $this->query->bind($bind);
                     $zone = implode(',', $array);
@@ -352,19 +347,12 @@ abstract class Builder
             // BETWEEN 查询
             $data = is_array($value) ? $value : explode(',', $value);
             if (array_key_exists($field, $binds)) {
-                if ($this->query->isBind($bindName . '_between_1')) {
-                    $bindKey1 = $bindName . '_between_1' . uniqid();
-                    $bindKey2 = $bindName . '_between_2' . uniqid();
-                } else {
-                    $bindKey1 = $bindName . '_between_1';
-                    $bindKey2 = $bindName . '_between_2';
-                }
                 $bind = [
-                    $bindKey1 => [$data[0], $bindType],
-                    $bindKey2 => [$data[1], $bindType],
+                    $bindName . '_between_1' => [$data[0], $bindType],
+                    $bindName . '_between_2' => [$data[1], $bindType],
                 ];
                 $this->query->bind($bind);
-                $between = ':' . $bindKey1 . ' AND :' . $bindKey2;
+                $between = ':' . $bindName . '_between_1' . ' AND :' . $bindName . '_between_2';
             } else {
                 $between = $this->parseValue($data[0], $field) . ' AND ' . $this->parseValue($data[1], $field);
             }
@@ -409,23 +397,12 @@ abstract class Builder
     protected function parseDateTime($value, $key, $options = [], $bindName = null, $bindType = null)
     {
         // 获取时间字段类型
-        if (strpos($key, '.')) {
-            list($table, $key) = explode('.', $key);
-            if (isset($options['alias']) && $pos = array_search($table, $options['alias'])) {
-                $table = $pos;
-            }
-        } else {
-            $table = $options['table'];
-        }
-        $type = $this->query->getTableInfo($table, 'type');
+        $type = $this->query->getFieldsType($options);
         if (isset($type[$key])) {
             $info = $type[$key];
         }
         if (isset($info)) {
-            if (is_numeric($value) && strtotime($value)) {
-                $value = strtotime($value) ?: $value;
-            }
-
+            $value = strtotime($value) ?: $value;
             if (preg_match('/(datetime|timestamp)/is', $info)) {
                 // 日期及时间戳类型
                 $value = date('Y-m-d H:i:s', $value);
